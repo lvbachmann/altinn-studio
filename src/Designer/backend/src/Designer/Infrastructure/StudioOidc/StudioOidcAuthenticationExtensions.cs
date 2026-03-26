@@ -4,7 +4,6 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -12,7 +11,6 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Altinn.Studio.Designer.Configuration;
 using Altinn.Studio.Designer.Constants;
-using Altinn.Studio.Designer.Filters;
 using Altinn.Studio.Designer.Helpers;
 using Altinn.Studio.Designer.Infrastructure.ApiKeyAuth;
 using Altinn.Studio.Designer.Telemetry;
@@ -139,19 +137,13 @@ public static class StudioOidcAuthenticationExtensions
                     options.ClaimActions.MapJsonKey("given_name", "given_name");
                     options.ClaimActions.MapJsonKey("family_name", "family_name");
 
-                    options.Events.OnRedirectToIdentityProvider = async context =>
+                    options.Events.OnRedirectToIdentityProvider = context =>
                     {
                         if (!context.Request.Path.StartsWithSegments(LoginPath))
                         {
                             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                             context.HandleResponse();
-                            await context.Response.WriteAsJsonAsync(
-                                ProblemDetailsUtils.GenerateProblemDetails(
-                                    StudioOidcErrorCodes.SessionExpired,
-                                    HttpStatusCode.Unauthorized
-                                )
-                            );
-                            return;
+                            return Task.CompletedTask;
                         }
 
                         var parameters = new NameValueCollection();
@@ -172,6 +164,8 @@ public static class StudioOidcAuthenticationExtensions
                         {
                             context.ProtocolMessage.SetParameters(parameters);
                         }
+
+                        return Task.CompletedTask;
                     };
 
                     // Temporarily using client_secret_basic (Authorization header) instead of client_secret_post to support the same client that Gitea uses

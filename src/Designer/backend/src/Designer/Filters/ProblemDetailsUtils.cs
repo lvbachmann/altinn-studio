@@ -8,13 +8,6 @@ namespace Altinn.Studio.Designer.Filters
 {
     public static class ProblemDetailsUtils
     {
-        public static ProblemDetails GenerateProblemDetails(string customErrorCode, HttpStatusCode statusCode)
-        {
-            ProblemDetails details = new() { Status = (int)statusCode };
-            details.Extensions.Add(ProblemDetailsExtensionsCodes.ErrorCode, customErrorCode);
-            return details;
-        }
-
         public static ProblemDetails GenerateProblemDetails(
             Exception ex,
             string customErrorCode,
@@ -23,10 +16,14 @@ namespace Altinn.Studio.Designer.Filters
         )
         {
             string exceptionType = ex.GetType().Name;
-            ProblemDetails details = GenerateProblemDetails(customErrorCode, statusCode);
-            details.Title = $"{exceptionType} occurred.";
-            details.Detail = ex.Message;
-            details.Type = exceptionType;
+            ProblemDetails details = new()
+            {
+                Title = $"{exceptionType} occured.",
+                Detail = ex.Message,
+                Status = (int)statusCode,
+                Type = exceptionType,
+            };
+            details.Extensions.Add(ProblemDetailsExtensionsCodes.ErrorCode, customErrorCode);
 
             if (customErrorMessages is not null)
             {

@@ -58,7 +58,7 @@ namespace Altinn.Studio.Designer.Filters.Git
                 context.Result = new ObjectResult(
                     ProblemDetailsUtils.GenerateProblemDetails(
                         context.Exception,
-                        GitErrorCodes.SessionExpired,
+                        GitErrorCodes.GiteaSessionExpired,
                         HttpStatusCode.Unauthorized
                     )
                 )
