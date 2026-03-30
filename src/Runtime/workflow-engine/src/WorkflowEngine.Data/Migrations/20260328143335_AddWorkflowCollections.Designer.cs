@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WorkflowEngine.Data.Context;
@@ -11,14 +12,16 @@ using WorkflowEngine.Data.Context;
 namespace WorkflowEngine.Data.Migrations
 {
     [DbContext(typeof(EngineDbContext))]
-    partial class EngineDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328143335_AddWorkflowCollections")]
+    partial class AddWorkflowCollections
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("engine")
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.1")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -165,12 +168,11 @@ namespace WorkflowEngine.Data.Migrations
                     b.Property<DateTimeOffset?>("CancellationRequestedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("CollectionKey")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
                     b.Property<string>("ContextJson")
                         .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -220,7 +222,7 @@ namespace WorkflowEngine.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CollectionKey");
+                    b.HasIndex("CorrelationId");
 
                     b.HasIndex("CreatedAt");
 

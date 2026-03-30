@@ -450,6 +450,18 @@ internal sealed class Engine(
                 $"Request contains {request.Labels.Count} labels, maximum is {_settings.MaxLabels}."
             );
 
+        // Validate CollectionKey format when present
+        if (request.CollectionKey is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.CollectionKey))
+                return new SizeLimitValidationResult.Invalid("CollectionKey cannot be empty or whitespace.");
+
+            if (request.CollectionKey.Length > 200)
+                return new SizeLimitValidationResult.Invalid(
+                    $"CollectionKey '{request.CollectionKey[..50]}...' is {request.CollectionKey.Length} characters, maximum is 200."
+                );
+        }
+
         for (int i = 0; i < request.Workflows.Count; i++)
         {
             var workflow = request.Workflows[i];

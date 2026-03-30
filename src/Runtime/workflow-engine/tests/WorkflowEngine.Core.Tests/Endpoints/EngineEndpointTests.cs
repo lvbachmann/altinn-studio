@@ -323,7 +323,7 @@ public class EngineEndpointTests
                     It.IsAny<int>(),
                     It.IsAny<Guid?>(),
                     It.IsAny<bool>(),
-                    It.IsAny<Guid?>(),
+                    It.IsAny<string?>(),
                     It.IsAny<string?>(),
                     It.IsAny<IReadOnlyDictionary<string, string>?>(),
                     It.IsAny<CancellationToken>()
@@ -364,7 +364,7 @@ public class EngineEndpointTests
                     It.IsAny<int>(),
                     It.IsAny<Guid?>(),
                     It.IsAny<bool>(),
-                    It.IsAny<Guid?>(),
+                    It.IsAny<string?>(),
                     It.IsAny<string?>(),
                     It.IsAny<IReadOnlyDictionary<string, string>?>(),
                     It.IsAny<CancellationToken>()
@@ -400,13 +400,13 @@ public class EngineEndpointTests
                     It.IsAny<int>(),
                     It.IsAny<Guid?>(),
                     It.IsAny<bool>(),
-                    It.IsAny<Guid?>(),
+                    It.IsAny<string?>(),
                     It.IsAny<string?>(),
                     It.IsAny<IReadOnlyDictionary<string, string>?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .Callback<int, Guid?, bool, Guid?, string?, IReadOnlyDictionary<string, string>?, CancellationToken>(
+            .Callback<int, Guid?, bool, string?, string?, IReadOnlyDictionary<string, string>?, CancellationToken>(
                 (_, _, _, _, ns, _, _) => capturedNamespace = ns
             )
             .ReturnsAsync(new CursorPaginatedResult([], null, 0));
@@ -439,13 +439,13 @@ public class EngineEndpointTests
                     It.IsAny<int>(),
                     It.IsAny<Guid?>(),
                     It.IsAny<bool>(),
-                    It.IsAny<Guid?>(),
+                    It.IsAny<string?>(),
                     It.IsAny<string?>(),
                     It.IsAny<IReadOnlyDictionary<string, string>?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .Callback<int, Guid?, bool, Guid?, string?, IReadOnlyDictionary<string, string>?, CancellationToken>(
+            .Callback<int, Guid?, bool, string?, string?, IReadOnlyDictionary<string, string>?, CancellationToken>(
                 (pageSize, _, _, _, _, _, _) => capturedPageSize = pageSize
             )
             .ReturnsAsync(new CursorPaginatedResult([], null, 0));
@@ -480,13 +480,13 @@ public class EngineEndpointTests
                     It.IsAny<int>(),
                     It.IsAny<Guid?>(),
                     It.IsAny<bool>(),
-                    It.IsAny<Guid?>(),
+                    It.IsAny<string?>(),
                     It.IsAny<string?>(),
                     It.IsAny<IReadOnlyDictionary<string, string>?>(),
                     It.IsAny<CancellationToken>()
                 )
             )
-            .Callback<int, Guid?, bool, Guid?, string?, IReadOnlyDictionary<string, string>?, CancellationToken>(
+            .Callback<int, Guid?, bool, string?, string?, IReadOnlyDictionary<string, string>?, CancellationToken>(
                 (pageSize, cursor, _, _, _, _, _) =>
                 {
                     capturedCursor = cursor;

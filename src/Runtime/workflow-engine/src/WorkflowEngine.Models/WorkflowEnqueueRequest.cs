@@ -24,6 +24,14 @@ public sealed record WorkflowEnqueueRequest
     public JsonElement? Context { get; init; }
 
     /// <summary>
+    /// Optional collection key. When set, the workflows in this request join the named collection
+    /// (created on first use within the namespace). Subsequent requests with the same collection key
+    /// can build upon the collection's current head workflows.
+    /// </summary>
+    [JsonPropertyName("collectionKey")]
+    public string? CollectionKey { get; init; }
+
+    /// <summary>
     /// The workflows to enqueue.
     /// </summary>
     [JsonPropertyName("workflows")]
