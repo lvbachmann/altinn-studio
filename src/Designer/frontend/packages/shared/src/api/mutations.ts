@@ -73,6 +73,9 @@ import {
   contactPointPath,
   contactPointActivePath,
   validateNavigationPageSettingsPath,
+  chatThreadsPath,
+  chatThreadPath,
+  chatMessagesPath,
 } from 'app-shared/api/paths';
 import type { AddLanguagePayload } from 'app-shared/types/api/AddLanguagePayload';
 import type { AddRepoParams } from 'app-shared/types/api';
@@ -112,6 +115,7 @@ import type { AppSettings } from 'app-shared/types/AppSettings';
 import type { AddUserApiKeyRequest } from 'app-shared/types/api/AddUserApiKeyRequest';
 import type { AddUserApiKeyResponse } from 'app-shared/types/api/AddUserApiKeyResponse';
 import type { ContactPoint, ContactPointPayload } from 'app-shared/types/ContactPoint';
+import type { ChatThreadResponse, CreateChatMessagePayload } from 'app-shared/types/api/ChatPayloads';
 
 const headers = {
   Accept: 'application/json',
@@ -248,3 +252,9 @@ export const addContactPoint = async (org: string, payload: ContactPointPayload)
 export const updateContactPoint = async (org: string, id: string, payload: ContactPointPayload): Promise<ContactPoint> => put(contactPointPath(org, id), payload);
 export const toggleContactPointActive = async (org: string, id: string, isActive: boolean): Promise<void> => patch(contactPointActivePath(org, id), { isActive });
 export const deleteContactPoint = async (org: string, id: string): Promise<void> => del(contactPointPath(org, id));
+
+// Chat
+export const createChatThread = (org: string, app: string, payload: { title: string }) => post<ChatThreadResponse>(chatThreadsPath(org, app), payload);
+export const updateChatThread = (org: string, app: string, threadId: string, payload: { title: string }) => put(chatThreadPath(org, app, threadId), payload);
+export const deleteChatThread = (org: string, app: string, threadId: string) => del(chatThreadPath(org, app, threadId));
+export const createChatMessage = (org: string, app: string, threadId: string, payload: CreateChatMessagePayload) => post(chatMessagesPath(org, app, threadId), payload);

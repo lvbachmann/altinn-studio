@@ -55,7 +55,7 @@ describe('useAltinityWorkflow', () => {
     expect(threads.addMessageToThread).not.toHaveBeenCalled();
   });
 
-  it('starts workflow with backend session id', async () => {
+  it('creates thread and starts workflow for new session', async () => {
     const threads = createThreadState();
     const startWorkflow = jest.fn<Promise<AgentResponse>, [WorkflowRequest]>().mockResolvedValue({
       accepted: false,
@@ -86,9 +86,10 @@ describe('useAltinityWorkflow', () => {
       await result.current.onSubmitMessage(message);
     });
 
-    expect(threads.setCurrentSession).toHaveBeenCalledWith('backend-session');
+    expect(threads.createThread).toHaveBeenCalledWith('Hello');
+    expect(threads.setCurrentSession).toHaveBeenCalledWith('new-thread-id');
     expect(threads.addMessageToThread).toHaveBeenCalledWith(
-      'backend-session',
+      'new-thread-id',
       expect.objectContaining({ author: MessageAuthor.User, content: 'Hello' }),
     );
     expect(startWorkflow).toHaveBeenCalledWith(
@@ -111,11 +112,11 @@ const createThreadState = (): AltinityThreadState => ({
   setCurrentSession: jest.fn(),
   selectThread: jest.fn(),
   createNewThread: jest.fn(),
+  createThread: jest.fn().mockResolvedValue('new-thread-id'),
   deleteThread: jest.fn(),
   addMessageToThread: jest.fn(),
   removeLoadingMessage: jest.fn(),
   replaceLoadingWithMessage: jest.fn(),
-  removeLastUserMessage: jest.fn(),
   removeCancelledMessages: jest.fn(),
   upsertAssistantMessage: jest.fn(),
   updateWorkflowStatusMessage: jest.fn(),

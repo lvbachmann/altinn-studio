@@ -1,13 +1,18 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
+import type { MutableRefObject } from 'react';
 import type {
   ChatThread,
   UserMessage,
   AssistantMessage,
   AssistantMessageData,
+  Message,
 } from '@studio/assistant';
 import { MessageAuthor } from '@studio/assistant';
-import type { MutableRefObject } from 'react';
 import { useThreadStorage } from '../useThreadStorage/useThreadStorage';
+import { useChatMessagesQuery } from '../queries/useChatMessagesQuery';
+import { useCreateChatMessageMutation } from '../mutations/useCreateChatMessageMutation';
+import { isLastLoadingAssistantMessage } from '../../utils/messageUtils';
+import type { ChatMessageResponse } from '../../types/api';
 
 export interface AltinityThreadState {
   chatThreads: ChatThread[];
@@ -16,11 +21,11 @@ export interface AltinityThreadState {
   setCurrentSession: (sessionId: string | null) => void;
   selectThread: (threadId: string | null) => void;
   createNewThread: () => void;
+  createThread: (title: string) => Promise<string>;
   deleteThread: (threadId: string) => void;
   addMessageToThread: (threadId: string, message: UserMessage | AssistantMessage) => void;
   removeLoadingMessage: (threadId: string) => void;
   replaceLoadingWithMessage: (threadId: string, message: AssistantMessage) => void;
-  removeLastUserMessage: (threadId: string) => string | null;
   removeCancelledMessages: (threadId: string) => string | null;
   upsertAssistantMessage: (
     sessionId: string,
@@ -31,21 +36,70 @@ export interface AltinityThreadState {
   updateWorkflowStatusMessage: (sessionId: string, statusMessage: string) => void;
 }
 
+const mapApiMessageToMessage = (apiMessage: ChatMessageResponse): Message => {
+  if (apiMessage.role === 'User') {
+    return {
+      author: MessageAuthor.User,
+      content: apiMessage.content,
+      timestamp: new Date(apiMessage.createdAt),
+      allowAppChanges: apiMessage.actionMode === 'Edit',
+    };
+  }
+  return {
+    author: MessageAuthor.Assistant,
+    content: apiMessage.content,
+    timestamp: new Date(apiMessage.createdAt),
+    filesChanged: apiMessage.filesChanged ?? [],
+  };
+};
+
 export const useAltinityThreads = (): AltinityThreadState => {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const currentSessionIdRef = useRef<string | null>(null);
+  const [localMessages, setLocalMessages] = useState<Record<string, Message[]>>({});
+  const localMessagesRef = useRef<Record<string, Message[]>>({});
+
   const {
-    threads: chatThreads,
-    addThread,
-    updateThread,
-    getThread,
-    deleteThread: deleteThreadFromStorage,
+    threads: apiThreads,
+    addThread: createApiThread,
+    deleteThread: deleteApiThread,
   } = useThreadStorage();
+
+  const { data: apiMessages } = useChatMessagesQuery(currentSessionId);
+  const { mutate: createChatMessage } = useCreateChatMessageMutation();
 
   const setCurrentSession = useCallback((sessionId: string | null) => {
     setCurrentSessionId(sessionId);
     currentSessionIdRef.current = sessionId;
   }, []);
+
+  const getLocalMessages = useCallback((threadId: string): Message[] => {
+    return localMessagesRef.current[threadId] ?? [];
+  }, []);
+
+  const setLocalMessagesForThread = useCallback((threadId: string, messages: Message[]) => {
+    localMessagesRef.current = { ...localMessagesRef.current, [threadId]: messages };
+    setLocalMessages((prev) => ({ ...prev, [threadId]: messages }));
+  }, []);
+
+  const persistedMessages: Message[] = useMemo(
+    () => (apiMessages ?? []).map(mapApiMessageToMessage),
+    [apiMessages],
+  );
+  const persistedMessagesRef = useRef<Message[]>(persistedMessages);
+  persistedMessagesRef.current = persistedMessages;
+
+  const chatThreads: ChatThread[] = useMemo(() => {
+    return apiThreads.map((thread) => {
+      const isCurrentThread = thread.id === currentSessionId;
+      const messagesFromApi = isCurrentThread ? persistedMessages : [];
+      const messagesFromLocal = localMessages[thread.id] ?? [];
+      return {
+        ...thread,
+        messages: [...messagesFromApi, ...messagesFromLocal],
+      };
+    });
+  }, [apiThreads, currentSessionId, persistedMessages, localMessages]);
 
   const selectThread = useCallback(
     (threadId: string | null) => {
@@ -58,118 +112,106 @@ export const useAltinityThreads = (): AltinityThreadState => {
     setCurrentSession(null);
   }, [setCurrentSession]);
 
+  const createThread = useCallback(
+    async (title: string): Promise<string> => {
+      return createApiThread(title);
+    },
+    [createApiThread],
+  );
+
   const deleteThread = useCallback(
     (threadId: string) => {
-      deleteThreadFromStorage(threadId);
+      deleteApiThread(threadId);
+      const updatedRef = { ...localMessagesRef.current };
+      delete updatedRef[threadId];
+      localMessagesRef.current = updatedRef;
+      setLocalMessages((prev) => {
+        const next = { ...prev };
+        delete next[threadId];
+        return next;
+      });
       if (currentSessionIdRef.current === threadId) {
         setCurrentSession(null);
       }
     },
-    [deleteThreadFromStorage, setCurrentSession],
+    [deleteApiThread, setCurrentSession],
+  );
+
+  const persistMessageToApi = useCallback(
+    (threadId: string, message: UserMessage | AssistantMessage) => {
+      const isUser = message.author === MessageAuthor.User;
+      createChatMessage({
+        threadId,
+        payload: {
+          role: message.author,
+          content: message.content,
+          actionMode: isUser
+            ? (message as UserMessage).allowAppChanges
+              ? 'Edit'
+              : 'Ask'
+            : undefined,
+          attachmentFileNames: isUser
+            ? ((message as UserMessage).attachments ?? []).map((a) => a.name)
+            : undefined,
+          filesChanged: !isUser ? (message as AssistantMessage).filesChanged : undefined,
+        },
+      });
+    },
+    [createChatMessage],
   );
 
   const addMessageToThread = useCallback(
     (threadId: string, message: UserMessage | AssistantMessage) => {
-      const existingThread = getThread(threadId);
-      if (existingThread) {
-        const updatedMessages = [...existingThread.messages, message];
-        updateThread(threadId, {
-          messages: updatedMessages,
-        });
+      if (message.author === MessageAuthor.User) {
+        persistMessageToApi(threadId, message);
       } else {
-        const newThread: ChatThread = {
-          id: threadId,
-          title:
-            message.author === MessageAuthor.User
-              ? message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '')
-              : `Session ${threadId}`,
-          messages: [message],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        addThread(newThread);
+        const currentLocal = getLocalMessages(threadId);
+        setLocalMessagesForThread(threadId, [...currentLocal, message]);
       }
     },
-    [addThread, updateThread, getThread],
-  );
-
-  const removeLastUserMessage = useCallback(
-    (threadId: string): string | null => {
-      const existingThread = getThread(threadId);
-      if (!existingThread) return null;
-      const lastUserIndex = existingThread.messages.reduceRight(
-        (found, msg, index) => (found === -1 && msg.author === MessageAuthor.User ? index : found),
-        -1,
-      );
-      if (lastUserIndex === -1) return null;
-      const content = existingThread.messages[lastUserIndex].content;
-      updateThread(threadId, {
-        messages: existingThread.messages.filter((_, i) => i !== lastUserIndex),
-      });
-      return content;
-    },
-    [getThread, updateThread],
+    [persistMessageToApi, getLocalMessages, setLocalMessagesForThread],
   );
 
   const removeCancelledMessages = useCallback(
     (threadId: string): string | null => {
-      const existingThread = getThread(threadId);
-      if (!existingThread) return null;
-
-      const messages = existingThread.messages;
-
-      const lastUserIndex = messages.reduceRight(
-        (found, msg, index) => (found === -1 && msg.author === MessageAuthor.User ? index : found),
-        -1,
+      const localMsgs = getLocalMessages(threadId);
+      const filteredLocal = localMsgs.filter(
+        (msg, index, arr) => !isLastLoadingAssistantMessage(msg, index, arr),
       );
-      const restoredContent = lastUserIndex !== -1 ? messages[lastUserIndex].content : null;
+      setLocalMessagesForThread(threadId, filteredLocal);
 
-      const filtered = messages.filter((msg, index) => {
-        const isLastLoadingAssistant =
-          msg.author === MessageAuthor.Assistant &&
-          index === messages.length - 1 &&
-          (msg as AssistantMessage).isLoading;
-        return index !== lastUserIndex && !isLastLoadingAssistant;
-      });
-
-      updateThread(threadId, { messages: filtered });
-      return restoredContent;
+      const allMessages = [...persistedMessagesRef.current, ...localMsgs];
+      const lastUserMessage = allMessages.findLast((msg) => msg.author === MessageAuthor.User);
+      return lastUserMessage?.content ?? null;
     },
-    [getThread, updateThread],
+    [getLocalMessages, setLocalMessagesForThread],
   );
 
   const removeLoadingMessage = useCallback(
     (threadId: string) => {
-      const existingThread = getThread(threadId);
-      if (!existingThread) return;
-      const updatedMessages = existingThread.messages.filter(
-        (msg, index) =>
-          !(
-            msg.author === MessageAuthor.Assistant &&
-            index === existingThread.messages.length - 1 &&
-            (msg as AssistantMessage).isLoading
-          ),
+      const localMsgs = getLocalMessages(threadId);
+      const filtered = localMsgs.filter(
+        (msg, index, arr) => !isLastLoadingAssistantMessage(msg, index, arr),
       );
-      updateThread(threadId, { messages: updatedMessages });
+      setLocalMessagesForThread(threadId, filtered);
     },
-    [getThread, updateThread],
+    [getLocalMessages, setLocalMessagesForThread],
   );
 
   const replaceLoadingWithMessage = useCallback(
     (threadId: string, message: AssistantMessage) => {
-      const existingThread = getThread(threadId);
-      if (!existingThread) return;
-      const withoutLoading = existingThread.messages.filter(
-        (msg, index) =>
-          !(
-            msg.author === MessageAuthor.Assistant &&
-            index === existingThread.messages.length - 1 &&
-            (msg as AssistantMessage).isLoading
-          ),
-      );
-      updateThread(threadId, { messages: [...withoutLoading, message] });
+      if (!message.isLoading) {
+        persistMessageToApi(threadId, message);
+        setLocalMessagesForThread(threadId, []);
+      } else {
+        const localMsgs = getLocalMessages(threadId);
+        const withoutLoading = localMsgs.filter(
+          (msg, index, arr) => !isLastLoadingAssistantMessage(msg, index, arr),
+        );
+        setLocalMessagesForThread(threadId, [...withoutLoading, message]);
+      }
     },
-    [getThread, updateThread],
+    [getLocalMessages, setLocalMessagesForThread, persistMessageToApi],
   );
 
   const upsertAssistantMessage = useCallback(
@@ -179,10 +221,6 @@ export const useAltinityThreads = (): AltinityThreadState => {
       content: string,
       timestamp: Date,
     ) => {
-      const existingThread = getThread(sessionId);
-      if (!existingThread) return;
-
-      const lastMessage = existingThread.messages[existingThread.messages.length - 1];
       const assistantUpdate: AssistantMessage = {
         author: MessageAuthor.Assistant,
         content,
@@ -191,32 +229,25 @@ export const useAltinityThreads = (): AltinityThreadState => {
         sources: assistantMessage.sources || [],
         isLoading: false,
       };
-      const updatedMessages =
-        lastMessage && lastMessage.author === MessageAuthor.Assistant
-          ? [...existingThread.messages.slice(0, -1), { ...lastMessage, ...assistantUpdate }]
-          : [...existingThread.messages, assistantUpdate];
-      updateThread(sessionId, { messages: updatedMessages });
+
+      persistMessageToApi(sessionId, assistantUpdate);
+      setLocalMessagesForThread(sessionId, []);
     },
-    [getThread, updateThread],
+    [persistMessageToApi, setLocalMessagesForThread],
   );
 
   const updateWorkflowStatusMessage = useCallback(
     (sessionId: string, statusMessage: string) => {
-      const existingThread = getThread(sessionId);
-      if (!existingThread) return;
-
-      const updatedMessages = existingThread.messages.map((msg, index) => {
-        if (
-          msg.author === MessageAuthor.Assistant &&
-          index === existingThread.messages.length - 1
-        ) {
-          return { ...msg, content: `${statusMessage}` };
+      const localMsgs = getLocalMessages(sessionId);
+      const updatedMessages = localMsgs.map((msg, index) => {
+        if (msg.author === MessageAuthor.Assistant && index === localMsgs.length - 1) {
+          return { ...msg, content: statusMessage };
         }
         return msg;
       });
-      updateThread(sessionId, { messages: updatedMessages });
+      setLocalMessagesForThread(sessionId, updatedMessages);
     },
-    [getThread, updateThread],
+    [getLocalMessages, setLocalMessagesForThread],
   );
 
   return {
@@ -226,11 +257,11 @@ export const useAltinityThreads = (): AltinityThreadState => {
     setCurrentSession,
     selectThread,
     createNewThread,
+    createThread,
     deleteThread,
     addMessageToThread,
     removeLoadingMessage,
     replaceLoadingWithMessage,
-    removeLastUserMessage,
     removeCancelledMessages,
     upsertAssistantMessage,
     updateWorkflowStatusMessage,
