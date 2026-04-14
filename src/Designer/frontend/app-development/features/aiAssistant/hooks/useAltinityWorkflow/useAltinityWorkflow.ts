@@ -216,7 +216,7 @@ export const useAltinityWorkflow = (threads: AltinityThreadState): UseAltinityWo
           org,
           app,
           branch: branchToUse,
-          allow_app_changes: userMessage.allowAppChanges ?? false,
+          allow_app_changes: userMessage.allowAppChanges,
           attachments: userMessage.attachments,
         });
 
