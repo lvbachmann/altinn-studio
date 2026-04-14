@@ -37,7 +37,7 @@ export function createUserMessage(
 ): UserMessage {
   return {
     author: MessageAuthor.User,
-    content,
+    content: content.trim(),
     timestamp: new Date(),
     allowAppChanges,
     attachments,

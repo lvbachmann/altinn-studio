@@ -40,6 +40,7 @@ export function ChatColumn({
       messagesEndRef.current.scrollIntoView?.({ behavior: 'smooth' });
     }
   }, [messages]);
+
   const placeholderContent = (
     <div className={classes.emptyState}>
       <div className={classes.emptyStateIcon}>
