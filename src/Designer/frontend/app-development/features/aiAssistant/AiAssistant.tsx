@@ -19,7 +19,7 @@ function AiAssistant(): ReactElement {
     workflowStatus,
     chatThreads,
     currentSessionId,
-    onSubmitMessage,
+    onSubmitUserMessage,
     cancelCurrentWorkflow,
     cancelledMessageContent,
     clearCancelledMessageContent,
@@ -67,7 +67,7 @@ function AiAssistant(): ReactElement {
         enableCompactInterface={false}
         chatThreads={chatThreads}
         activeThreadId={currentSessionId}
-        onSubmitMessage={onSubmitMessage}
+        onSubmitMessage={onSubmitUserMessage}
         onCancelWorkflow={cancelCurrentWorkflow}
         cancelledMessageContent={cancelledMessageContent}
         onCancelledMessageConsumed={clearCancelledMessageContent}

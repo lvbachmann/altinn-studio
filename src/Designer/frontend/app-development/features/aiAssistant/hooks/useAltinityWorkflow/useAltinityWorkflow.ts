@@ -26,7 +26,7 @@ import {
 export interface UseAltinityWorkflowResult {
   connectionStatus: ConnectionStatus;
   workflowStatus: WorkflowStatus;
-  onSubmitMessage: (message: UserMessage) => Promise<void>;
+  onSubmitUserMessage: (message: UserMessage) => Promise<void>;
   resetWorkflowStatus: () => void;
   cancelCurrentWorkflow: () => Promise<void>;
   cancelledMessageContent: string | null;
@@ -286,7 +286,7 @@ export const useAltinityWorkflow = (threads: AltinityThreadState): UseAltinityWo
     [addMessageToThread, replaceLoadingWithMessage, startAgentWorkflow],
   );
 
-  const onSubmitMessage = useCallback(
+  const onSubmitUserMessage = useCallback(
     async (message: UserMessage): Promise<void> => {
       const trimmedContent = message.content?.trim();
       if (!trimmedContent) return;
@@ -344,7 +344,7 @@ export const useAltinityWorkflow = (threads: AltinityThreadState): UseAltinityWo
   return {
     connectionStatus,
     workflowStatus,
-    onSubmitMessage,
+    onSubmitUserMessage,
     resetWorkflowStatus,
     cancelCurrentWorkflow,
     cancelledMessageContent,
