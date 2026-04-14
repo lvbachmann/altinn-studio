@@ -46,7 +46,7 @@ export const useAltinityWorkflow = (threads: AltinityThreadState): UseAltinityWo
   const { mutate: resetRepository } = useResetRepositoryMutation(org, app);
   const { mutate: checkoutBranch } = useCheckoutBranchMutation(org, app);
   const currentBranch = currentBranchInfo?.branchName;
-  const currentBranchRef = useRef<string>('main');
+  const currentBranchRef = useRef<string>('master');
   const backendSessionIdRef = useRef<string | null>(backendSessionId);
 
   const {
@@ -207,7 +207,7 @@ export const useAltinityWorkflow = (threads: AltinityThreadState): UseAltinityWo
         message: 'Jobber med saken...',
       });
 
-      const branchToUse = currentBranch ?? currentBranchRef.current ?? 'main';
+      const branchToUse = currentBranch ?? currentBranchRef.current;
 
       try {
         const result = await startWorkflow({
