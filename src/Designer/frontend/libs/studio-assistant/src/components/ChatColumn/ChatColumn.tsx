@@ -8,6 +8,7 @@ import { StudioParagraph } from '@studio/components';
 import type { Message } from '../../types/ChatThread';
 import type { AssistantTexts } from '../../types/AssistantTexts';
 import type { User } from '../../types/User';
+import type { WorkflowStatus } from '../../types/WorkflowStatus';
 
 export type ChatColumnProps = {
   texts: AssistantTexts;
@@ -16,7 +17,7 @@ export type ChatColumnProps = {
   onCancelWorkflow?: () => void;
   cancelledMessageContent?: string | null;
   onCancelledMessageConsumed?: () => void;
-  workflowIsActive?: boolean;
+  workflowStatus?: WorkflowStatus;
   enableCompactInterface: boolean;
   currentUser?: User;
 };
@@ -28,18 +29,19 @@ export function ChatColumn({
   onCancelWorkflow,
   cancelledMessageContent,
   onCancelledMessageConsumed,
-  workflowIsActive = false,
+  workflowStatus,
   enableCompactInterface,
   currentUser,
 }: ChatColumnProps): ReactElement {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const workflowIsActive = workflowStatus?.isActive === true;
+  const workflowStatusMessage = workflowStatus?.message;
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView?.({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, workflowIsActive, workflowStatusMessage]);
 
   const placeholderContent = (
     <div className={classes.emptyState}>
@@ -58,14 +60,16 @@ export function ChatColumn({
   );
 
   const hasMessages = messages.length > 0;
+  const hasContent = hasMessages || workflowIsActive;
 
   return (
     <div className={classes.chatColumn}>
-      <div className={cn(classes.messagesWrapper, { [classes.hasMessages]: hasMessages })}>
-        {hasMessages ? (
+      <div className={cn(classes.messagesWrapper, { [classes.hasMessages]: hasContent })}>
+        {hasContent ? (
           <>
             <Messages
               messages={messages}
+              workflowStatus={workflowStatus}
               currentUser={currentUser}
               assistantAvatarUrl={undefined}
             />

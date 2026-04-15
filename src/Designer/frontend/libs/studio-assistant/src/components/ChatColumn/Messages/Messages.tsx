@@ -13,18 +13,24 @@ import { MessageAuthor } from '../../../types/MessageAuthor';
 import classes from './Messages.module.css';
 import assistantLogo from '../../../../../../app-development/features/aiAssistant/altinity-logo.png';
 import type { Message, UserAttachment, UserMessage, Source } from '../../../types/ChatThread';
+import type { WorkflowStatus } from '../../../types/WorkflowStatus';
 
 export type MessagesProps = {
   messages: Message[];
+  workflowStatus?: WorkflowStatus;
   currentUser?: User;
   assistantAvatarUrl?: string;
 };
 
 export function Messages({
   messages,
+  workflowStatus,
   currentUser,
   assistantAvatarUrl,
 }: MessagesProps): ReactElement {
+  const showLoadingBubble = workflowStatus?.isActive === true;
+  const loadingBubbleText = workflowStatus?.message ?? '';
+
   return (
     <div className={classes.messagesContainer}>
       {messages.map((message, index) => (
@@ -35,6 +41,45 @@ export function Messages({
           assistantAvatarUrl={assistantAvatarUrl}
         />
       ))}
+      {showLoadingBubble && (
+        <AssistantLoadingBubble
+          content={loadingBubbleText}
+          assistantAvatarUrl={assistantAvatarUrl}
+        />
+      )}
+    </div>
+  );
+}
+
+type AssistantLoadingBubbleProps = {
+  content: string;
+  assistantAvatarUrl?: string;
+};
+
+function AssistantLoadingBubble({
+  content,
+  assistantAvatarUrl,
+}: AssistantLoadingBubbleProps): ReactElement {
+  return (
+    <div className={`${classes.messageRow} ${classes.assistantRow}`}>
+      <div
+        className={`${classes.avatar} ${classes.assistantAvatarWrapper}`}
+        aria-label='Altinity'
+        title='Altinity'
+      >
+        <img
+          src={assistantAvatarUrl ?? assistantLogo}
+          alt='Altinity'
+          className={classes.assistantAvatarImage}
+        />
+      </div>
+      <div className={classes.assistantMessage}>
+        <div className={classes.messageMeta}>Altinity</div>
+        <div className={classes.assistantBody}>
+          <StudioSpinner data-size='sm' className={classes.inlineSpinner} aria-hidden={true} />
+          <div className={`${classes.assistantContent} ${classes.loadingText}`}>{content}</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -358,11 +403,8 @@ function MessageItem({ message, currentUser, assistantAvatarUrl }: MessageItemPr
       <div className={classes.assistantMessage}>
         <div className={classes.messageMeta}>Altinity</div>
         <div className={classes.assistantBody}>
-          {message.isLoading && (
-            <StudioSpinner data-size='sm' className={classes.inlineSpinner} aria-hidden={true} />
-          )}
           <div
-            className={`${classes.assistantContent} ${message.isLoading ? classes.loadingText : ''}`}
+            className={classes.assistantContent}
             dangerouslySetInnerHTML={{ __html: formatContent(message.content) }}
           />
         </div>
